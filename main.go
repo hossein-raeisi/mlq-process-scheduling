@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	scheduler "mlq/mlq_process_scheduling"
+	"sort"
 	"strconv"
 	"sync"
+	"time"
+
+	"mlq/scheduler"
 )
 
 func main() {
@@ -39,8 +42,16 @@ func generateRandomProcesses(number int) []*scheduler.Process {
 	processes := make([]*scheduler.Process, number)
 
 	for i := 0; i < number; i++ {
-		processes[i] = scheduler.NewProcess(rand.Intn(15)+1, "p"+strconv.Itoa(i))
+		processes[i] = scheduler.NewProcess(
+			rand.Intn(15)+1,
+			"p"+strconv.Itoa(i),
+			time.Now().Add(time.Second*time.Duration(rand.Intn(10)+1)),
+		)
 	}
+
+	sort.Slice(processes, func(i, j int) bool {
+		return processes[i].AT.Before(processes[j].AT)
+	})
 
 	return processes
 }
@@ -51,11 +62,11 @@ func insertProcesses(ctx context.Context, wg *sync.WaitGroup, mlq *scheduler.Mul
 
 	for _, process := range processes {
 		wg.Add(1)
+		if process.AT.After(time.Now()) {
+			time.Sleep(process.AT.Sub(time.Now()))
+		}
 		_ = mlq.InsertProcess(process)
 
-		fmt.Printf("inseting process: ")
-		process.Print()
+		go fmt.Printf("inserted process: %s \n", process.ToString())
 	}
-
-	fmt.Printf("\n")
 }

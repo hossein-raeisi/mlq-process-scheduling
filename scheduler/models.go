@@ -1,4 +1,4 @@
-package mlq_process_scheduling
+package scheduler
 
 import (
 	"context"
@@ -11,19 +11,21 @@ import (
 )
 
 type Process struct {
-	cbt  int
+	CBT  int
 	name string
+	AT   time.Time
 }
 
-func NewProcess(cbt int, name string) *Process {
+func NewProcess(CBT int, name string, AT time.Time) *Process {
 	return &Process{
-		cbt:  cbt,
+		CBT:  CBT,
 		name: name,
+		AT:   AT,
 	}
 }
 
-func (p *Process) Print() {
-	fmt.Printf("name: %s, CBT: %d \n", p.name, p.cbt)
+func (p *Process) ToString() string {
+	return fmt.Sprintf("name: %s, CBT: %d, AT: %s", p.name, p.CBT, strftime.Format(p.AT, "%M:%S"))
 }
 
 type CPUUsage struct {
@@ -68,7 +70,7 @@ func NewMultiLevelQueue(queues []*Queue) *MultiLevelQueue {
 
 func (mlq *MultiLevelQueue) InsertProcess(process *Process) error {
 	for _, queue := range mlq.queues {
-		if queue.MaxProcessCBT >= process.cbt {
+		if queue.MaxProcessCBT >= process.CBT {
 			queue.processes <- process
 			return nil
 		}
@@ -85,7 +87,7 @@ func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context, wg *sync.WaitGroup,
 			continue
 		}
 
-		if process.cbt > queue.timeSlice {
+		if process.CBT > queue.timeSlice {
 			wg.Add(1)
 		}
 
@@ -94,8 +96,8 @@ func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context, wg *sync.WaitGroup,
 		end := time.Now()
 		wg.Done()
 
-		if process.cbt > queue.timeSlice {
-			_ = mlq.InsertProcess(NewProcess(process.cbt-queue.timeSlice, process.name))
+		if process.CBT > queue.timeSlice {
+			_ = mlq.InsertProcess(NewProcess(process.CBT-queue.timeSlice, process.name, process.AT))
 		}
 
 		if doneChannel != nil {
