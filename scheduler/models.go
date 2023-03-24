@@ -11,12 +11,12 @@ import (
 )
 
 type Process struct {
-	CBT  int
+	CBT  time.Duration
 	name string
 	AT   time.Time
 }
 
-func NewProcess(CBT int, name string, AT time.Time) *Process {
+func NewProcess(CBT time.Duration, name string, AT time.Time) *Process {
 	return &Process{
 		CBT:  CBT,
 		name: name,
@@ -25,14 +25,13 @@ func NewProcess(CBT int, name string, AT time.Time) *Process {
 }
 
 func (p *Process) ToString() string {
-	return fmt.Sprintf("name: %s, CBT: %d, AT: %s", p.name, p.CBT, strftime.Format(p.AT, "%M:%S"))
+	return fmt.Sprintf("name: %s, CBT: %d, AT: %s", p.name, int(p.CBT.Seconds()), strftime.Format(p.AT, "%M:%S"))
 }
 
 type CPUUsage struct {
 	processName string
 	start       time.Time
 	end         time.Time
-	duration    time.Duration
 }
 
 func NewCPUUsage(processName string, start time.Time, end time.Time) *CPUUsage {
@@ -40,22 +39,25 @@ func NewCPUUsage(processName string, start time.Time, end time.Time) *CPUUsage {
 		processName: processName,
 		start:       start,
 		end:         end,
-		duration:    end.Sub(start),
 	}
 }
 
 type Queue struct {
 	processes     chan *Process
-	timeSlice     int
-	MaxProcessCBT int
+	timeSlice     time.Duration
+	MaxProcessCBT time.Duration
 }
 
-func NewQueue(timeSlice int, maxProcessCBT int) *Queue {
+func NewQueue(timeSlice time.Duration, maxProcessCBT time.Duration) *Queue {
 	return &Queue{
 		processes:     make(chan *Process, 100),
 		timeSlice:     timeSlice,
 		MaxProcessCBT: maxProcessCBT,
 	}
+}
+
+func (q *Queue) ToString() string {
+	return fmt.Sprintf("time slice: %d, max CBT: %d", int(q.timeSlice.Seconds()), int(q.MaxProcessCBT.Seconds()))
 }
 
 type MultiLevelQueue struct {
@@ -92,7 +94,7 @@ func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context, wg *sync.WaitGroup,
 		}
 
 		start := time.Now()
-		time.Sleep(time.Second * time.Duration(queue.timeSlice))
+		time.Sleep(queue.timeSlice)
 		end := time.Now()
 		wg.Done()
 
@@ -102,7 +104,7 @@ func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context, wg *sync.WaitGroup,
 
 		if doneChannel != nil {
 			doneChannel <- NewCPUUsage(process.name, start, end)
-			go fmt.Printf("task: %s, start time: %s, end time %s \n", process.name, strftime.Format(start, "%M:%S"), strftime.Format(end, "%M:%S"))
+			go fmt.Printf("task: %s from queue with %s | start time: %s, end time %s \n", process.name, queue.ToString(), strftime.Format(start, "%M:%S"), strftime.Format(end, "%M:%S"))
 		}
 	}
 }

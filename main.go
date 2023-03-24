@@ -12,30 +12,34 @@ import (
 	"mlq/scheduler"
 )
 
+var (
+	ProcessesNumber   = 5
+	ProcessMaxCBT     = 16
+	ProcessMaxATDelay = 10
+)
+
 func main() {
-	_ = run()
+	run()
 }
 
-func run() error {
+func run() {
 	queues := []*scheduler.Queue{
-		scheduler.NewQueue(1, 2),
-		scheduler.NewQueue(2, 4),
-		scheduler.NewQueue(4, 8),
-		scheduler.NewQueue(8, 16),
+		scheduler.NewQueue(time.Second*1, time.Second*2),
+		scheduler.NewQueue(time.Second*2, time.Second*4),
+		scheduler.NewQueue(time.Second*4, time.Second*8),
+		scheduler.NewQueue(time.Second*8, time.Second*16),
 	}
 	mlq := scheduler.NewMultiLevelQueue(queues)
-	processes := generateRandomProcesses(5)
+	processes := generateRandomProcesses(ProcessesNumber)
 	ctx := context.Background()
 	wg := &sync.WaitGroup{}
 
-	doneChannel := make(chan *scheduler.CPUUsage, len(processes)*16+1)
+	doneChannel := make(chan *scheduler.CPUUsage, len(processes)*ProcessMaxCBT)
 
 	wg.Add(1)
 	go insertProcesses(ctx, wg, mlq, processes)
 	go mlq.ScheduleCPU(ctx, wg, doneChannel)
 	wg.Wait()
-
-	return nil
 }
 
 func generateRandomProcesses(number int) []*scheduler.Process {
@@ -43,9 +47,9 @@ func generateRandomProcesses(number int) []*scheduler.Process {
 
 	for i := 0; i < number; i++ {
 		processes[i] = scheduler.NewProcess(
-			rand.Intn(15)+1,
+			time.Second*time.Duration(rand.Intn(ProcessMaxCBT-1)+1),
 			"p"+strconv.Itoa(i),
-			time.Now().Add(time.Second*time.Duration(rand.Intn(10)+1)),
+			time.Now().Add(time.Second*time.Duration(rand.Intn(ProcessMaxATDelay-1)+1)),
 		)
 	}
 
