@@ -35,11 +35,14 @@ func run() {
 	wg := &sync.WaitGroup{}
 
 	doneChannel := make(chan *scheduler.CPUUsage, len(processes)*ProcessMaxCBT)
+	updateChannel := make(chan scheduler.UpdateLog, len(processes)*(ProcessMaxCBT+1))
 
 	wg.Add(1)
-	go insertProcesses(ctx, wg, mlq, processes)
-	go mlq.ScheduleCPU(ctx, wg, doneChannel)
+	go insertProcesses(ctx, wg, mlq, processes, updateChannel)
+	go mlq.ScheduleCPU(ctx, wg, doneChannel, updateChannel)
 	wg.Wait()
+
+	scheduler.Display(updateChannel)
 }
 
 func generateRandomProcesses(number int) []*scheduler.Process {
@@ -61,7 +64,7 @@ func generateRandomProcesses(number int) []*scheduler.Process {
 }
 
 func insertProcesses(ctx context.Context, wg *sync.WaitGroup, mlq *scheduler.MultiLevelQueue,
-	processes []*scheduler.Process) {
+	processes []*scheduler.Process, updateChannel chan scheduler.UpdateLog) {
 	defer wg.Done()
 
 	for _, process := range processes {
@@ -69,7 +72,7 @@ func insertProcesses(ctx context.Context, wg *sync.WaitGroup, mlq *scheduler.Mul
 		if process.AT.After(time.Now()) {
 			time.Sleep(process.AT.Sub(time.Now()))
 		}
-		_ = mlq.InsertProcess(process)
+		_ = mlq.InsertProcess(process, updateChannel)
 
 		go fmt.Printf("inserted process: %s \n", process.ToString())
 	}
