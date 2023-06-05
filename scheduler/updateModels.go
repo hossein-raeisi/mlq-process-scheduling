@@ -11,14 +11,50 @@ import (
 )
 
 type UpdateLog interface {
-	ATF() time.Time
+	ATF() int
 }
 
-func (cu *CPUUsage) ATF() time.Time {
+type CPUUpdate struct {
+	ProcessName string `json:"Name"`
+	Start       int    `json:"Start"`
+	End         int    `json:"End"`
+	QI          int    `json:"QI"`
+	UpdateType  string `json:"Type"`
+}
+
+func (cu CPUUsage) toUpdate() *CPUUpdate {
+	return &CPUUpdate{
+		ProcessName: cu.ProcessName,
+		Start:       cu.Start.Minute()*60 + cu.Start.Second(),
+		End:         cu.End.Minute()*60 + cu.End.Second(),
+		QI:          cu.QI,
+		UpdateType:  "CPUUpdate",
+	}
+}
+
+func (cu *CPUUpdate) ATF() int {
 	return cu.Start
 }
 
-func (proc *Process) ATF() time.Time {
+type AddProcess struct {
+	CBT        int    `json:"CBT"`
+	Name       string `json:"Name"`
+	AT         int    `json:"AT"`
+	QI         int    `json:"QI"`
+	UpdateType string `json:"Type"`
+}
+
+func (proc *Process) toUpdate() *AddProcess {
+	return &AddProcess{
+		Name:       proc.Name,
+		AT:         proc.AT.Minute()*60 + proc.AT.Second(),
+		QI:         proc.QI,
+		CBT:        int(proc.CBT),
+		UpdateType: "AddProcess",
+	}
+}
+
+func (proc *AddProcess) ATF() int {
 	return proc.AT
 }
 
@@ -33,7 +69,7 @@ func Display(updateChannel chan UpdateLog) {
 	}
 
 	sort.Slice(updates, func(i, j int) bool {
-		return updates[i].ATF().Before(updates[j].ATF())
+		return updates[i].ATF() < updates[j].ATF()
 	})
 
 	router := gin.Default()

@@ -11,19 +11,17 @@ import (
 )
 
 type Process struct {
-	CBT        time.Duration `json:"CBT"`
-	Name       string        `json:"Name"`
-	AT         time.Time     `json:"AT"`
-	QI         int           `json:"QI"`
-	UpdateType string        `json:"Type"`
+	CBT  time.Duration
+	Name string
+	AT   time.Time
+	QI   int
 }
 
 func NewProcess(CBT time.Duration, name string, AT time.Time) *Process {
 	return &Process{
-		CBT:        CBT,
-		Name:       name,
-		AT:         AT,
-		UpdateType: "Process",
+		CBT:  CBT,
+		Name: name,
+		AT:   AT,
 	}
 }
 
@@ -32,11 +30,10 @@ func (proc *Process) ToString() string {
 }
 
 type CPUUsage struct {
-	ProcessName string    `json:"Name"`
-	Start       time.Time `json:"Start"`
-	End         time.Time `json:"End"`
-	QI          int       `json:"QI"`
-	UpdateType  string    `json:"Type"`
+	ProcessName string
+	Start       time.Time
+	End         time.Time
+	QI          int
 }
 
 func NewCPUUsage(processName string, start time.Time, end time.Time, qi int) *CPUUsage {
@@ -45,7 +42,6 @@ func NewCPUUsage(processName string, start time.Time, end time.Time, qi int) *CP
 		Start:       start,
 		End:         end,
 		QI:          qi,
-		UpdateType:  "CPUUsage",
 	}
 }
 
@@ -82,7 +78,7 @@ func (mlq *MultiLevelQueue) InsertProcess(process *Process, updateChannel chan U
 		if queue.MaxProcessCBT >= process.CBT {
 			queue.processes <- process
 			process.QI = i
-			updateChannel <- process
+			updateChannel <- process.toUpdate()
 			return nil
 		}
 	}
@@ -116,7 +112,7 @@ func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context,
 		if doneChannel != nil {
 			cu := NewCPUUsage(process.Name, start, end, process.QI)
 			doneChannel <- cu
-			updateChannel <- cu
+			updateChannel <- cu.toUpdate()
 			go fmt.Printf("task: %s from queue with %s | start time: %s, end time %s \n", process.Name, queue.ToString(), strftime.Format(start, "%M:%S"), strftime.Format(end, "%M:%S"))
 		}
 	}
