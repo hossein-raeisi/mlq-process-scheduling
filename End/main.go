@@ -42,7 +42,7 @@ func run() {
 	go mlq.ScheduleCPU(ctx, wg, doneChannel, updateChannel)
 	wg.Wait()
 
-	scheduler.Display(updateChannel)
+	scheduler.Display(updateChannel, wg)
 }
 
 func generateRandomProcesses(number int) []*scheduler.Process {

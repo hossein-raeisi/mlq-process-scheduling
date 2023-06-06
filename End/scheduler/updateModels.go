@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"runtime"
 	"sort"
-	"time"
+	"sync"
 )
 
 type UpdateLog interface {
@@ -49,7 +49,7 @@ func (proc *Process) toUpdate() *AddProcess {
 		Name:       proc.Name,
 		AT:         proc.AT.Minute()*60 + proc.AT.Second(),
 		QI:         proc.QI,
-		CBT:        int(proc.CBT),
+		CBT:        int(proc.CBT.Seconds()),
 		UpdateType: "AddProcess",
 	}
 }
@@ -58,7 +58,7 @@ func (proc *AddProcess) ATF() int {
 	return proc.AT
 }
 
-func Display(updateChannel chan UpdateLog) {
+func Display(updateChannel chan UpdateLog, wg *sync.WaitGroup) {
 	updates := make([]UpdateLog, len(updateChannel))
 	for i := 0; len(updateChannel) != 0; i++ {
 		update, ok := <-updateChannel
@@ -76,11 +76,7 @@ func Display(updateChannel chan UpdateLog) {
 	router.GET("/updates", func(c *gin.Context) {
 		c.IndentedJSON(http.StatusOK, updates)
 	})
-	go router.Run("localhost:8181")
-	time.Sleep(time.Second)
-
-	time.Sleep(time.Second)
-	open("localhost:8282")
+	_ = router.Run("localhost:3131")
 }
 
 func open(url string) {
