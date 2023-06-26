@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os/exec"
 	"runtime"
-	"sort"
 	"sync"
 )
 
@@ -67,10 +66,6 @@ func Display(updateChannel chan UpdateLog, wg *sync.WaitGroup) {
 		}
 		updates[i] = update
 	}
-
-	sort.Slice(updates, func(i, j int) bool {
-		return updates[i].ATF() < updates[j].ATF()
-	})
 
 	router := gin.Default()
 	router.GET("/updates", func(c *gin.Context) {

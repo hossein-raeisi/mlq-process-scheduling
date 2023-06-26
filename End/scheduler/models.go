@@ -104,16 +104,16 @@ func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context,
 		end := time.Now()
 		wg.Done()
 
-		if process.CBT > queue.timeSlice {
-			_ = mlq.InsertProcess(NewProcess(process.CBT-queue.timeSlice, process.Name, process.AT),
-				updateChannel)
-		}
-
-		if doneChannel != nil {
+		if updateChannel != nil {
 			cu := NewCPUUsage(process.Name, start, end, process.QI)
 			doneChannel <- cu
 			updateChannel <- cu.toUpdate()
 			go fmt.Printf("task: %s from queue with %s | start time: %s, end time %s \n", process.Name, queue.ToString(), strftime.Format(start, "%M:%S"), strftime.Format(end, "%M:%S"))
+		}
+
+		if process.CBT > queue.timeSlice {
+			_ = mlq.InsertProcess(NewProcess(process.CBT-queue.timeSlice, process.Name, process.AT),
+				updateChannel)
 		}
 	}
 }
