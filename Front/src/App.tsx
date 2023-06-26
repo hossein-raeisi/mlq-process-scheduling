@@ -32,7 +32,6 @@ export default function App() {
                 const CPU = update as CPUUpdate;
                 CPU.StartStr = Math.floor(CPU.Start / 60) + ":" + CPU.Start % 60;
                 CPU.EndStr = Math.floor(CPU.End / 60) + ":" + CPU.End % 60;
-                queues[CPU.QI].splice(0, 1);
                 const newQueues = Array<AddProcess[]>(4);
                 queues.forEach((queue, i) => {
                     newQueues[i] = Array<AddProcess>();
@@ -40,6 +39,7 @@ export default function App() {
                         newQueues[i].push(Object.assign({}, process));
                     });
                 });
+                queues[CPU.QI].splice(0, 1);
                 return <CpuTask key={i} cpu={CPU} queues={newQueues} />;
             }
         })}

@@ -1,7 +1,6 @@
 import Queue from "./Queue";
 import { CPUUpdate, AddProcess } from "./Updates";
 export function CpuTask({ cpu, queues }: { cpu: CPUUpdate, queues: AddProcess[][] }) {
-    const a = 1;
     return (
         <div className={"task "}>
             <CPUUsage cpu={cpu} />
