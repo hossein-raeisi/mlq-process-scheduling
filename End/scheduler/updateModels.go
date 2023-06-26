@@ -74,7 +74,8 @@ func Display(updateChannel chan UpdateLog, wg *sync.WaitGroup) {
 
 	router := gin.Default()
 	router.GET("/updates", func(c *gin.Context) {
-		c.IndentedJSON(http.StatusOK, updates)
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.JSON(http.StatusOK, updates)
 	})
 	_ = router.Run("localhost:3131")
 }

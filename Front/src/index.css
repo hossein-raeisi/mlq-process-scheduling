@@ -5,9 +5,12 @@ body {
 }
 table, td, tr, th {
     border-collapse: collapse;
-    border: 1px solid black;
+    border: 0.1px solid black;
 }
 .task {
+    padding: 2px 2px 2px 2px;
+    border-collapse: collapse;
+    border: 1px solid black;
     display: grid;
     grid-template-columns: max-content max-content max-content max-content max-content;
     grid-gap: 20px;

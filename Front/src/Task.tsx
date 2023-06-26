@@ -1,10 +1,13 @@
 import Queue from "./Queue";
 import { CPUUpdate, AddProcess } from "./Updates";
-export default function Task({ cpu, queues }: { cpu: CPUUpdate, queues: AddProcess[][] }) {
+export function CpuTask({ cpu, queues }: { cpu: CPUUpdate, queues: AddProcess[][] }) {
+    const a = 1;
     return (
-        <div className={"task "} >
+        <div className={"task "}>
             <CPUUsage cpu={cpu} />
-            {queues.map((queue, i) => <Queue key={i} i={i} queue={queue} />)}
+            {queues.map((queue, i) => {
+                return <Queue key={i} i={i} queue={queue} />;
+            })}
         </div>
     );
 }
@@ -20,7 +23,7 @@ function CPUUsage({cpu }: {cpu: CPUUpdate}) {
             <tbody>
                 <tr>
                     <td>start</td>
-                    <td>{cpu.Start}</td>
+                    <td>{cpu.StartStr}</td>
                 </tr>
                 <tr>
                     <td>process</td>
@@ -28,7 +31,7 @@ function CPUUsage({cpu }: {cpu: CPUUpdate}) {
                 </tr>
                 <tr>
                     <td>end</td>
-                    <td>{cpu.End}</td>
+                    <td>{cpu.EndStr}</td>
                 </tr>
             </tbody>
         </table>
