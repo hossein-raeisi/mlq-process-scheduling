@@ -12,33 +12,36 @@ import (
 
 type Process struct {
 	CBT  time.Duration
-	name string
+	Name string
 	AT   time.Time
+	QI   int
 }
 
 func NewProcess(CBT time.Duration, name string, AT time.Time) *Process {
 	return &Process{
 		CBT:  CBT,
-		name: name,
+		Name: name,
 		AT:   AT,
 	}
 }
 
-func (p *Process) ToString() string {
-	return fmt.Sprintf("name: %s, CBT: %d, AT: %s", p.name, int(p.CBT.Seconds()), strftime.Format(p.AT, "%M:%S"))
+func (proc *Process) ToString() string {
+	return fmt.Sprintf("name: %s, CBT: %d, AT: %s", proc.Name, int(proc.CBT.Seconds()), strftime.Format(proc.AT, "%M:%S"))
 }
 
 type CPUUsage struct {
-	processName string
-	start       time.Time
-	end         time.Time
+	ProcessName string
+	Start       time.Time
+	End         time.Time
+	QI          int
 }
 
-func NewCPUUsage(processName string, start time.Time, end time.Time) *CPUUsage {
+func NewCPUUsage(processName string, start time.Time, end time.Time, qi int) *CPUUsage {
 	return &CPUUsage{
-		processName: processName,
-		start:       start,
-		end:         end,
+		ProcessName: processName,
+		Start:       start,
+		End:         end,
+		QI:          qi,
 	}
 }
 
@@ -70,10 +73,12 @@ func NewMultiLevelQueue(queues []*Queue) *MultiLevelQueue {
 	}
 }
 
-func (mlq *MultiLevelQueue) InsertProcess(process *Process) error {
-	for _, queue := range mlq.queues {
+func (mlq *MultiLevelQueue) InsertProcess(process *Process, updateChannel chan UpdateLog) error {
+	for i, queue := range mlq.queues {
 		if queue.MaxProcessCBT >= process.CBT {
 			queue.processes <- process
+			process.QI = i
+			updateChannel <- process.toUpdate()
 			return nil
 		}
 	}
@@ -81,7 +86,8 @@ func (mlq *MultiLevelQueue) InsertProcess(process *Process) error {
 	return errors.New("couldn't find suitable queue")
 }
 
-func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context, wg *sync.WaitGroup, doneChannel chan *CPUUsage) {
+func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context,
+	wg *sync.WaitGroup, doneChannel chan *CPUUsage, updateChannel chan UpdateLog) {
 	for true {
 		process, queue, err := mlq.getProcess()
 		if err != nil {
@@ -98,13 +104,16 @@ func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context, wg *sync.WaitGroup,
 		end := time.Now()
 		wg.Done()
 
-		if process.CBT > queue.timeSlice {
-			_ = mlq.InsertProcess(NewProcess(process.CBT-queue.timeSlice, process.name, process.AT))
+		if updateChannel != nil {
+			cu := NewCPUUsage(process.Name, start, end, process.QI)
+			doneChannel <- cu
+			updateChannel <- cu.toUpdate()
+			go fmt.Printf("task: %s from queue with %s | start time: %s, end time %s \n", process.Name, queue.ToString(), strftime.Format(start, "%M:%S"), strftime.Format(end, "%M:%S"))
 		}
 
-		if doneChannel != nil {
-			doneChannel <- NewCPUUsage(process.name, start, end)
-			go fmt.Printf("task: %s from queue with %s | start time: %s, end time %s \n", process.name, queue.ToString(), strftime.Format(start, "%M:%S"), strftime.Format(end, "%M:%S"))
+		if process.CBT > queue.timeSlice {
+			_ = mlq.InsertProcess(NewProcess(process.CBT-queue.timeSlice, process.Name, process.AT),
+				updateChannel)
 		}
 	}
 }
@@ -112,7 +121,6 @@ func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context, wg *sync.WaitGroup,
 func (mlq *MultiLevelQueue) getProcess() (*Process, *Queue, error) {
 	for _, queue := range mlq.queues {
 		if len(queue.processes) != 0 {
-
 			process, ok := <-queue.processes
 			if !ok {
 				return nil, nil, errors.New("couldn't read from channel")
