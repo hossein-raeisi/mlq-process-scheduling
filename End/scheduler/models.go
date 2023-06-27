@@ -11,10 +11,10 @@ import (
 )
 
 type Process struct {
-	CBT  time.Duration
-	Name string
-	AT   time.Time
-	QI   int
+	CBT  time.Duration `json:"CBT"`
+	Name string        `json:"name"`
+	AT   time.Time     `json:"AT"`
+	QI   int           `json:"QI"`
 }
 
 func NewProcess(CBT time.Duration, name string, AT time.Time) *Process {
@@ -86,8 +86,7 @@ func (mlq *MultiLevelQueue) InsertProcess(process *Process, updateChannel chan U
 	return errors.New("couldn't find suitable queue")
 }
 
-func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context,
-	wg *sync.WaitGroup, doneChannel chan *CPUUsage, updateChannel chan UpdateLog) {
+func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context, wg *sync.WaitGroup, updateChannel chan UpdateLog) {
 	for true {
 		process, queue, err := mlq.getProcess()
 		if err != nil {
@@ -100,20 +99,24 @@ func (mlq *MultiLevelQueue) ScheduleCPU(ctx context.Context,
 		}
 
 		start := time.Now()
-		time.Sleep(queue.timeSlice)
+		time.Sleep(minDuration(queue.timeSlice, process.CBT))
 		end := time.Now()
 		wg.Done()
 
 		if updateChannel != nil {
 			cu := NewCPUUsage(process.Name, start, end, process.QI)
-			doneChannel <- cu
 			updateChannel <- cu.toUpdate()
-			go fmt.Printf("task: %s from queue with %s | start time: %s, end time %s \n", process.Name, queue.ToString(), strftime.Format(start, "%M:%S"), strftime.Format(end, "%M:%S"))
+			go fmt.Printf(
+				"task: %s from queue with %s | start time: %s, end time %s \n",
+				process.Name, queue.ToString(),
+				strftime.Format(start, "%M:%S"), strftime.Format(end, "%M:%S"),
+			)
 		}
 
 		if process.CBT > queue.timeSlice {
-			_ = mlq.InsertProcess(NewProcess(process.CBT-queue.timeSlice, process.Name, process.AT),
-				updateChannel)
+			newProcess := NewProcess(process.CBT-queue.timeSlice, process.Name, process.AT)
+			queue.processes <- newProcess
+			updateChannel <- process.toUpdate()
 		}
 	}
 }
@@ -130,4 +133,11 @@ func (mlq *MultiLevelQueue) getProcess() (*Process, *Queue, error) {
 	}
 
 	return nil, nil, errors.New("all channels are empty")
+}
+
+func minDuration(a, b time.Duration) time.Duration {
+	if a <= b {
+		return a
+	}
+	return b
 }

@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"math/rand"
+	"os"
 	"sort"
 	"strconv"
 	"sync"
@@ -19,10 +23,18 @@ var (
 )
 
 func main() {
-	run()
+	args := os.Args
+
+	fmt.Printf("%v \n", args)
+
+	filePath := ""
+	if len(args) > 1 {
+		filePath = args[1]
+	}
+	run(filePath)
 }
 
-func run() {
+func run(filePath string) {
 	queues := []*scheduler.Queue{
 		scheduler.NewQueue(time.Second*1, time.Second*2),
 		scheduler.NewQueue(time.Second*2, time.Second*4),
@@ -30,16 +42,26 @@ func run() {
 		scheduler.NewQueue(time.Second*8, time.Second*16),
 	}
 	mlq := scheduler.NewMultiLevelQueue(queues)
-	processes := generateRandomProcesses(ProcessesNumber)
+
+	var err error
+	var processes []*scheduler.Process
+
+	if len(filePath) > 0 {
+		processes, err = loadProcessesFromJson(filePath)
+		if err != nil {
+			log.Fatal("couldn't read from json file")
+		}
+	} else {
+		processes = generateRandomProcesses(ProcessesNumber)
+	}
+
 	ctx := context.Background()
 	wg := &sync.WaitGroup{}
-
-	doneChannel := make(chan *scheduler.CPUUsage, len(processes)*ProcessMaxCBT)
 	updateChannel := make(chan scheduler.UpdateLog, len(processes)*(ProcessMaxCBT+1))
 
 	wg.Add(1)
 	go insertProcesses(ctx, wg, mlq, processes, updateChannel)
-	go mlq.ScheduleCPU(ctx, wg, doneChannel, updateChannel)
+	go mlq.ScheduleCPU(ctx, wg, updateChannel)
 	wg.Wait()
 
 	scheduler.Display(updateChannel, wg)
@@ -61,6 +83,23 @@ func generateRandomProcesses(number int) []*scheduler.Process {
 	})
 
 	return processes
+}
+
+func loadProcessesFromJson(filePath string) ([]*scheduler.Process, error) {
+	jsonFile, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer jsonFile.Close()
+
+	byteValue, _ := io.ReadAll(jsonFile)
+	var processes []*scheduler.Process
+	err = json.Unmarshal(byteValue, &processes)
+	if err != nil {
+		return nil, err
+	}
+
+	return processes, nil
 }
 
 func insertProcesses(ctx context.Context, wg *sync.WaitGroup, mlq *scheduler.MultiLevelQueue,
